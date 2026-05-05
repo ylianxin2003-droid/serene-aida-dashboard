@@ -11,6 +11,7 @@ import streamlit as st
 
 from aida import AIDAState
 from aida.api import default_api_config, downloadOutput
+from aida.parameter import Parameter
 from aida_dashboard.comparison import compare_grids
 from aida_dashboard.data_loader import (
     Param2DProduct,
@@ -35,6 +36,39 @@ PARAMETER_UNITS = {
     "hmF2": "km",
     "Ne": "m^-3",
 }
+
+
+
+def _single_float(value) -> float:
+    values = np.asarray(value, dtype=float)
+    if values.size != 1:
+        raise ValueError("Expected a single numeric value")
+    return float(values.ravel()[0])
+
+
+def _patch_aida_single_value_parameters() -> None:
+    def bounded_setter(attr_name: str, lower: float, upper: float | None = None):
+        def setter(self, value):
+            if value is None:
+                setattr(self, attr_name, value)
+                return
+            numeric = _single_float(value)
+            if upper is None:
+                numeric = np.fmax(numeric, lower).ravel()
+            else:
+                numeric = np.clip(numeric, lower, upper).ravel()
+            setattr(self, attr_name, numeric)
+        return setter
+
+    Parameter.kx = property(Parameter.kx.fget, bounded_setter("_kx", 0.0, 1.0))
+    Parameter.kv = property(Parameter.kv.fget, bounded_setter("_kv", 0.0, 1.0))
+    Parameter.kT = property(Parameter.kT.fget, bounded_setter("_kT", 0.0, 1.0))
+    Parameter.k_umin = property(Parameter.k_umin.fget, bounded_setter("_k_umin", 0.0))
+    Parameter.k_uk = property(Parameter.k_uk.fget, bounded_setter("_k_uk", 0.0))
+
+
+_patch_aida_single_value_parameters()
+
 
 PARAMETER_LABELS = {
     "TEC": "Total Electron Content",

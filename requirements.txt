@@ -1,4 +1,4 @@
--e .
+git+https://github.com/breid-phys/aida-ionosphere.git
 streamlit
 matplotlib
 pytest
